@@ -6,18 +6,36 @@ import os
 
 schemaUrls = []
 schemaFilenames = []
+dirName = ''
 
-def getSubSchemaUrl(url):
-    global schemaUrls
+def urlGet(url):
     try:
-        subSchemaContent = urllib2.urlopen(url)
+        urlContent = urllib2.urlopen(url)
     except:
         print 'Error opening URL:' + url
         sys.exit(2)
 
-    subSchemaTree = xml.etree.ElementTree.parse(subSchemaContent)
-    subSchemaRoot = subSchemaTree.getroot()
+    return urlContent
 
+def urlGetString(url):
+    try:
+        urlContent = urllib2.urlopen(url)
+    except:
+        print 'Error opening URL:' + url
+        sys.exit(2)
+
+    return urlContent.read()
+
+def getSubSchemaUrl(url):
+    subSchemaContent = urlGet(url)
+
+    try:
+        subSchemaTree = xml.etree.ElementTree.parse(subSchemaContent)
+    except:
+        print 'Failed to parse response from:' + url + ' as XML'
+        sys.exit(2)
+
+    subSchemaRoot = subSchemaTree.getroot()
     importElements = subSchemaRoot.findall(".//*[@schemaLocation]")
 
     for child in importElements:
@@ -28,30 +46,27 @@ def getSubSchemaUrl(url):
 
 def downloadSchemas():
     global schemaFilenames
+    global dirName
+
     for url,filename in schemaFilenames:
-        try:
-            fileContent = urllib2.urlopen(url)
-        except:
-            print 'Error opening URL:' + url
-            sys.exit(2)
+        fileContent = urlGetString(url)
 
         print 'Transforming and saving ' + url + ' to local file: ' + filename
 
-        fileTree = xml.etree.ElementTree.parse(fileContent)
-        fileRoot = fileTree.getroot()
-
         for in_url,in_filename in schemaFilenames:
-            xpathValue = ".//*[@schemaLocation=\"" + in_url + "\"]"
-            importElement = fileTree.find(xpathValue)
-            if importElement is not None:
-                importElement.set('schemaLocation',in_filename)
+            print 'replacing ' + in_url + ' with ' + in_filename
+            fileContent = fileContent.replace(in_url,in_filename)
+            print fileContent.find(in_url)
 
-        fileTree.write(open(filename, 'wb'))
+        schemaFile = open(dirName + '/' + filename, 'w')
+        schemaFile.write(fileContent)
+        schemaFile.close
 
 def main(argv):
     wsdlUrl = ''
     global schemaUrls
     global schemaFilenames
+    global dirName
 
     print 'Starting...'
 
@@ -66,20 +81,21 @@ def main(argv):
 
     wsdlUrl = opts[0][1]
     wsdlName = wsdlUrl.split("/")[-1].split("?")[0]
+    dirName = wsdlName
     print 'Exporting schema definitions from: ' + wsdlUrl
     if not os.path.exists(wsdlName):
         print 'Creating new project directory: ' + wsdlName
-        os.makedirs(wsdlName)
+        os.makedirs(dirName)
 
     getSubSchemaUrl(wsdlUrl)
     schemaUrls = list(set(schemaUrls))
     schemaUrls.sort()
 
     for index,schemaUrl in enumerate(schemaUrls):
-        schemaName = wsdlName + '/' + wsdlName + '_' + str(index) + '.xsd'
+        schemaName = wsdlName + '_' + str(index) + '.xsd'
         schemaFilenames.append([schemaUrl,schemaName])
 
-    schemaFilenames.append([wsdlUrl, wsdlName + '/' + wsdlName + '.wsdl'])
+    schemaFilenames.append([wsdlUrl, wsdlName + '.wsdl'])
 
     downloadSchemas()
 
