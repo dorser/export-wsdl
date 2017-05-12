@@ -54,9 +54,8 @@ def downloadSchemas():
         print 'Transforming and saving ' + url + ' to local file: ' + filename
 
         for in_url,in_filename in schemaFilenames:
-            print 'replacing ' + in_url + ' with ' + in_filename
+            # print 'replacing ' + in_url + ' with ' + in_filename
             fileContent = fileContent.replace(in_url,in_filename)
-            print fileContent.find(in_url)
 
         schemaFile = open(dirName + '/' + filename, 'w')
         schemaFile.write(fileContent)
